@@ -8,7 +8,6 @@
 <style>
 :root{
   --primary:#4f46e5;
-  --success:#16a34a;
   --danger:#dc2626;
   --bg:#f1f5f9;
   --card:#ffffff;
@@ -47,7 +46,10 @@ input{
   font-size:15px;
 }
 
-input:focus{outline:none;border-color:var(--primary)}
+input:focus{
+  outline:none;
+  border-color:var(--primary);
+}
 
 /* SUGGESTIONS */
 .suggestions{
@@ -77,7 +79,7 @@ input:focus{outline:none;border-color:var(--primary)}
 }
 .item:active{transform:scale(.98)}
 .item-name{font-weight:600}
-.item-price{color:var(--success);font-weight:700}
+.item-price{color:#16a34a;font-weight:700}
 
 /* BASKET */
 .basket{
@@ -87,9 +89,6 @@ input:focus{outline:none;border-color:var(--primary)}
 }
 
 .basket-item{
-  display:grid;
-  grid-template-columns:1fr auto;
-  gap:10px;
   padding:12px 0;
   border-bottom:1px solid var(--border);
 }
@@ -119,7 +118,7 @@ input:focus{outline:none;border-color:var(--primary)}
   color:var(--muted);
 }
 
-/* BUTTON */
+/* BUTTONS */
 button{
   width:100%;
   height:46px;
@@ -143,130 +142,155 @@ button{
 <div class="container">
   <h2>🛒 Shopping List</h2>
 
+  <!-- STORE -->
   <input id="dealerInput" placeholder="Select store…" oninput="filterDealers()">
   <div id="dealerSug" class="suggestions"></div>
 
+  <!-- ITEMS -->
   <div id="items"></div>
 
-  <!-- ADD CUSTOM ITEM -->
+  <!-- CUSTOM ITEM -->
   <button class="add-custom" onclick="addCustomItem()">➕ Not in the list?</button>
 
+  <!-- BASKET -->
   <div id="basket" class="basket" style="display:none">
     <h3>Your List</h3>
     <div id="basketItems"></div>
-    <button onclick="sendToWhatsApp()">Send Shopping List</button>
+    <button onclick="sendToGoogleTasks()">Add to Google To-Do</button>
   </div>
 </div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbzRt_ad2rXgZNVO4_Nlumm8EAxN7jcG7gG1y0yKEec7WXnws68ygcAqrhCjRzcmdWzl/exec";
-const API_KEY="9848o22338B!";
-const WHATSAPP_NUMBER="919603007016";
+/* ================= CONFIG ================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbzRt_ad2rXgZNVO4_Nlumm8EAxN7jcG7gG1y0yKEec7WXnws68ygcAqrhCjRzcmdWzl/exec";
+const API_KEY = "9848o22338B!";
 
-let groceries={}, dealers=[], cart={};
-const basketBox=document.getElementById("basket");
+/* 🔴 PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE */
+const TASK_API_URL = "https://script.google.com/macros/s/AKfycbzeDl1WSzWWkK5-9PR8tU7Ol6d_WL72AEj1G51kIWpbBpTIXkUp0QEiCtHlZjOY6DHF1w/exec";
 
+/* ================= STATE ================= */
+let groceries = {};
+let dealers = [];
+let cart = {};
+const basketBox = document.getElementById("basket");
+
+/* ================= LOAD DATA ================= */
 fetch(`${API_URL}?key=${API_KEY}`)
-  .then(r=>r.json())
-  .then(d=>{groceries=d||{};initDealers();});
+  .then(r => r.json())
+  .then(d => {
+    groceries = d || {};
+    initDealers();
+  });
 
 function initDealers(){
-  const s=new Set();
-  Object.values(groceries).forEach(a=>a.forEach(d=>s.add(d.dealer)));
-  dealers=[...s];
+  const set = new Set();
+  Object.values(groceries).forEach(arr =>
+    arr.forEach(d => set.add(d.dealer))
+  );
+  dealers = [...set];
 }
 
+/* ================= STORE ================= */
 function filterDealers(){
-  dealerSug.innerHTML="";
-  const v=dealerInput.value.toLowerCase();
+  dealerSug.innerHTML = "";
+  const v = dealerInput.value.toLowerCase();
   if(!v) return;
-  dealers.filter(d=>d.toLowerCase().includes(v)).forEach(d=>{
-    const div=document.createElement("div");
-    div.textContent=d;
-    div.onclick=()=>selectDealer(d);
+
+  dealers.filter(d => d.toLowerCase().includes(v)).forEach(d => {
+    const div = document.createElement("div");
+    div.textContent = d;
+    div.onclick = () => selectDealer(d);
     dealerSug.appendChild(div);
   });
 }
 
 function selectDealer(dealer){
-  dealerInput.value=dealer;
-  dealerSug.innerHTML="";
-  cart={};
+  dealerInput.value = dealer;
+  dealerSug.innerHTML = "";
+  cart = {};
   renderBasket();
   showItems(dealer);
 }
 
+/* ================= ITEMS ================= */
 function showItems(dealer){
-  items.innerHTML="";
-  Object.keys(groceries).forEach(item=>{
-    groceries[item].forEach(d=>{
-      if(d.dealer===dealer){
-        items.innerHTML+=`
-        <div class="item" onclick="addItem('${item}',${d.price})">
-          <div class="item-name">${item}</div>
-          <div class="item-price">₹${d.price}</div>
-        </div>`;
+  items.innerHTML = "";
+  Object.keys(groceries).forEach(item => {
+    groceries[item].forEach(d => {
+      if(d.dealer === dealer){
+        items.innerHTML += `
+          <div class="item" onclick="addItem('${item}',${d.price})">
+            <div class="item-name">${item}</div>
+            <div class="item-price">₹${d.price}</div>
+          </div>`;
       }
     });
   });
 }
 
-function addItem(item,price){
-  if(!cart[item]) cart[item]={price,qty:1,custom:false};
+function addItem(item, price){
+  if(!cart[item]) cart[item] = { qty:1, price, custom:false };
   renderBasket();
 }
 
+/* ================= CUSTOM ITEMS ================= */
 function addCustomItem(){
-  const name=prompt("Enter item name");
+  const name = prompt("Enter item name");
   if(!name) return;
-  cart[name]={qty:1,custom:true};
+  cart[name] = { qty:1, custom:true };
   renderBasket();
 }
 
-function updateQty(item,val){
-  const q=parseFloat(val);
-  if(!q||q<=0) delete cart[item];
-  else cart[item].qty=parseFloat(q.toFixed(2));
+/* ================= BASKET ================= */
+function updateQty(item, val){
+  const q = parseFloat(val);
+  if(!q || q <= 0) delete cart[item];
+  else cart[item].qty = parseFloat(q.toFixed(2));
   renderBasket();
 }
 
 function renderBasket(){
-  basketItems.innerHTML="";
-  Object.keys(cart).forEach(item=>{
-    const b=cart[item];
-    basketItems.innerHTML+=`
+  basketItems.innerHTML = "";
+  Object.keys(cart).forEach(item => {
+    const b = cart[item];
+    basketItems.innerHTML += `
       <div class="basket-item">
-        <div>
-          <strong>${item}</strong>
-          ${b.custom?'<span class="custom-tag">(Custom)</span>':''}
-          ${b.price?`<br>₹${b.price} per unit`:''}
-          <div class="qty-row">
-            <input type="number" step="0.01" min="0"
-              value="${b.qty}"
-              onchange="updateQty('${item}',this.value)">
-            <span class="remove" onclick="updateQty('${item}',0)">Remove</span>
-          </div>
+        <strong>${item}</strong>
+        ${b.custom ? '<span class="custom-tag">(Custom)</span>' : ''}
+        ${b.price ? `<br>₹${b.price} per unit` : ''}
+        <div class="qty-row">
+          <input type="number" step="0.01" min="0"
+            value="${b.qty}"
+            onchange="updateQty('${item}',this.value)">
+          <span class="remove" onclick="updateQty('${item}',0)">Remove</span>
         </div>
       </div>`;
   });
 
-  basketBox.style.display=Object.keys(cart).length?"block":"none";
+  basketBox.style.display = Object.keys(cart).length ? "block" : "none";
 }
 
-function sendToWhatsApp(){
+/* ================= GOOGLE TASKS ================= */
+function sendToGoogleTasks(){
   if(!Object.keys(cart).length){
     alert("Shopping list is empty");
     return;
   }
 
-  let msg="🛒 *SHOPPING LIST*\n\n";
-  Object.keys(cart).forEach(item=>{
-    const b=cart[item];
-    msg+=`• ${item} – Qty: ${b.qty}\n`;
-  });
+  const items = Object.keys(cart).map(item => ({
+    name: item,
+    qty: cart[item].qty
+  }));
 
-  const url=`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
-  window.open(url,"_blank");
+  fetch(TASK_API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      listName:"Shopping List",
+      items: items
+    })
+  })
+  .then(() => alert("Shopping list added to Google To-Do ✅"))
+  .catch(() => alert("Failed to add to Google To-Do ❌"));
 }
 </script>
 
