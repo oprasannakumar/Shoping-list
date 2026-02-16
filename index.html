@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>Shopping List</title>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f1f5f9">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -282,6 +286,14 @@ function sendToGoogleTasks(){
   .catch(()=>alert("Failed ❌"));
 }
 </script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Shoping list App Registered'))
+        .catch(err => console.log('PWA Registration Failed', err));
+    });
+  }
+</script>
 </body>
 </html>
